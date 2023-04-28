@@ -10,6 +10,18 @@ import torch.nn.functional as F
 
 pl.seed_everything(0, workers=True)
 
+class MetricTracker(pl.callbacks.Callback):
+
+  def __init__(self):
+    self.collection = []
+
+  def on_validation_epoch_end(self,trainer, module):
+    elogs = trainer.logged_metrics # access it here
+    self.collection.append(elogs)
+
+    print(trainer.logged_metrics)
+    # do whatever is needed
+
 # define the LightningModule
 class LitModel(pl.LightningModule):
     def __init__(self, input_size=28*28, num_classes=10):
@@ -104,7 +116,8 @@ valid_loader = utils.data.DataLoader(valid_set, batch_size=BATCH_SIZE, shuffle=F
 test_loader = utils.data.DataLoader(test_set, batch_size=BATCH_SIZE, shuffle=False)
 
 # train the model
-trainer = pl.Trainer(devices=1, max_epochs=50)
+
+trainer = pl.Trainer(devices=1, max_epochs=1, callbacks=[MetricTracker()]
 trainer.fit(model=model, train_dataloaders=train_loader, val_dataloaders=valid_loader)
 
 # test 
