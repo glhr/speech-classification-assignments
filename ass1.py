@@ -41,7 +41,7 @@ class LitModel(pl.LightningModule):
         x_hat = self.decoder(z)
         loss = self.get_loss(x_hat, y)
         # Logging to TensorBoard (if installed) by default
-        self.log("train_loss", loss, on_epoch=True)
+        self.log("train_loss", loss, on_epoch=True, on_step=False)
         return loss
     
     def validation_step(self, batch, batch_idx):
@@ -50,7 +50,7 @@ class LitModel(pl.LightningModule):
         z = self.encoder(x)
         x_hat = self.decoder(z)
         val_loss =self.get_loss(x_hat, y)
-        self.log("val_loss", val_loss, on_epoch=True)
+        self.log("val_loss", val_loss, on_epoch=True, on_step=False)
     
     def test_step(self, batch, batch_idx):
         # this is the test loop
@@ -65,7 +65,7 @@ class LitModel(pl.LightningModule):
         pred_cls = torch.argmax(x_hat, dim=1)
         gt_cls = torch.argmax(y, dim=1)
         acc = torch.sum(pred_cls == gt_cls) / float(len(gt_cls))
-        self.log("test_acc", acc, on_epoch=True)
+        self.log("test_acc", acc, on_epoch=True, on_step=False)
 
     def configure_optimizers(self):
         optimizer = optim.SGD(self.parameters(), lr=1e-2, momentum=0.9, weight_decay=1e-5)
@@ -73,13 +73,13 @@ class LitModel(pl.LightningModule):
 
 
 # init the autoencoder
-autoencoder = LitModel()
+model = LitModel()
 
 from torchvision import transforms
 data_transform = transforms.Compose([
     transforms.ToTensor(),
-    transforms.Normalize(mean = [0.5, 0.5, 0.5],
-                         std= [0.1, 0.1, 0.1])
+    transforms.Normalize(mean = 33.32/255,
+                         std= 78.57/255)
 ])
 
 # setup data
@@ -92,16 +92,20 @@ valid_set_size = len(dataset) - train_set_size
 # split the train set into two
 seed = torch.Generator().manual_seed(42)
 train_set, valid_set = data.random_split(dataset, [train_set_size, valid_set_size], generator=seed)
+# get mean and std of training data
+#print(train_set.dataset.data[:2])
+train_mean = torch.mean(train_set.dataset.data.float())
+train_std = torch.std(train_set.dataset.data.float())
+print("Training data - mean: {}, std: {}".format(train_mean, train_std))
 
 BATCH_SIZE = 1024
 train_loader = utils.data.DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True)
 valid_loader = utils.data.DataLoader(valid_set, batch_size=BATCH_SIZE, shuffle=False)
 test_loader = utils.data.DataLoader(test_set, batch_size=BATCH_SIZE, shuffle=False)
 
-
 # train the model
 trainer = pl.Trainer(devices=1, max_epochs=50)
-trainer.fit(model=autoencoder, train_dataloaders=train_loader, val_dataloaders=valid_loader)
+trainer.fit(model=model, train_dataloaders=train_loader, val_dataloaders=valid_loader)
 
 # test 
-trainer.test(model=autoencoder, dataloaders=test_loader)
+trainer.test(model=model, dataloaders=test_loader)
