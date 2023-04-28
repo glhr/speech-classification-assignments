@@ -12,15 +12,29 @@ pl.seed_everything(0, workers=True)
 
 class MetricTracker(pl.callbacks.Callback):
 
-  def __init__(self):
-    self.collection = []
+    def on_train_end(self, trainer, pl_module):
+        # get log dir
+        # print(dir(pl_module.logger.experiment))
+        log_dir = pl_module.logger.experiment.log_dir
+        print("log_dir: ", log_dir)
 
-  def on_validation_epoch_end(self,trainer, module):
-    elogs = trainer.logged_metrics # access it here
-    self.collection.append(elogs)
+        import pandas as pd
+        import matplotlib.pyplot as plt
+        # read csv file metrics.csv
+        df = pd.read_csv(os.path.join(log_dir, "metrics.csv"))
+        # select only the columns we need
+        df = df[["epoch", "train_loss_epoch", "val_loss_epoch"]]
+        # merge rows with same epoch
+        df = df.groupby("epoch").mean()
+        print(df)
+        # plot train and validation loss
+        plt.plot(df.index,df["train_loss_epoch"], label="train_loss")
+        plt.plot(df.index,df["val_loss_epoch"], label="val_loss")
+        plt.legend()
+        plt.show()
+        plt.savefig(os.path.join(log_dir, "loss.png"))
 
-    print(trainer.logged_metrics)
-    # do whatever is needed
+
 
 # define the LightningModule
 class LitModel(pl.LightningModule):
@@ -35,6 +49,8 @@ class LitModel(pl.LightningModule):
         self.decoder = nn.Sequential( nn.Linear(128, num_classes), nn.Softmax(dim=1))
 
         self.num_classes = num_classes
+
+        self.metrics_dict = dict()
 
     def get_loss(self, x, y):
         return F.cross_entropy(x, y)
@@ -53,7 +69,8 @@ class LitModel(pl.LightningModule):
         x_hat = self.decoder(z)
         loss = self.get_loss(x_hat, y)
         # Logging to TensorBoard (if installed) by default
-        self.log("train_loss", loss, on_epoch=True, on_step=False)
+        self.log("train_loss", loss, on_epoch=True, on_step=True)
+        self.metrics_dict
         return loss
     
     def validation_step(self, batch, batch_idx):
@@ -62,7 +79,7 @@ class LitModel(pl.LightningModule):
         z = self.encoder(x)
         x_hat = self.decoder(z)
         val_loss =self.get_loss(x_hat, y)
-        self.log("val_loss", val_loss, on_epoch=True, on_step=False)
+        self.log("val_loss", val_loss, on_epoch=True, on_step=True)
     
     def test_step(self, batch, batch_idx):
         # this is the test loop
@@ -116,9 +133,11 @@ valid_loader = utils.data.DataLoader(valid_set, batch_size=BATCH_SIZE, shuffle=F
 test_loader = utils.data.DataLoader(test_set, batch_size=BATCH_SIZE, shuffle=False)
 
 # train the model
-
-trainer = pl.Trainer(devices=1, max_epochs=1, callbacks=[MetricTracker()]
+cb = MetricTracker()
+trainer = pl.Trainer(devices=1, max_epochs=50, callbacks=[cb], log_every_n_steps=1)
 trainer.fit(model=model, train_dataloaders=train_loader, val_dataloaders=valid_loader)
+
+
 
 # test 
 trainer.test(model=model, dataloaders=test_loader)
