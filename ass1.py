@@ -75,9 +75,16 @@ class LitModel(pl.LightningModule):
 # init the autoencoder
 autoencoder = LitModel()
 
+from torchvision import transforms
+data_transform = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize(mean = [0.5, 0.5, 0.5],
+                         std= [0.1, 0.1, 0.1])
+])
+
 # setup data
-dataset = MNIST(os.getcwd(), download=True, transform=ToTensor())
-test_set = MNIST(os.getcwd(), download=True, train=False, transform=ToTensor())
+dataset = MNIST(os.getcwd(), download=True, transform=data_transform)
+test_set = MNIST(os.getcwd(), download=True, train=False, transform=data_transform)
 # use 20% of training data for validation
 train_set_size = int(len(dataset) * 0.8)
 valid_set_size = len(dataset) - train_set_size
