@@ -1,3 +1,15 @@
+# ###################################
+# Group ID : 530
+# Members : Rahabu Mwang’amba, Yurii Iotov, Galadrielle Humblot-Renaux
+# Date : 28/4/2023
+# Lecture: 1 Feedforward neural networks
+# Dependencies: Pytorch Lightning 2.0.2, Torchvision 0.15.1, Pandas, Matplotlib, Numpy
+# Python version: 3.9.15
+# Functionality: Training a fully connected neural network to classify audio samples into three classes.
+# Script includes a calculation of the number of parameters in the model, plotting of training curves,
+# and performance evaluation on the test set.
+# ###################################
+
 import os
 from torch import optim, nn, utils
 import lightning.pytorch as pl
@@ -91,6 +103,19 @@ class LitModel(pl.LightningModule):
 
 # initialize the model
 model = LitModel()
+
+# calculate the number of parameters in the model and check that it is the same as the one computed in the report
+manually_calculated_no_params = 567171
+def get_no_params(model):
+ nop = 0
+ for param in list(model.parameters()):
+    nn = 1
+    for s in list(param.size()):
+        nn = nn * s
+    nop += nn
+ return nop
+nop = get_no_params(model)
+assert nop == manually_calculated_no_params, f"We messed up (calculated {manually_calculated_no_params} parameters, but it should be {nop})"
 
 ## load samples (X) and labels (y) for train, validation and test sets
 X_train = np.load(f"DL_Data/X_train.p", allow_pickle=True)
