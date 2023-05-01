@@ -37,7 +37,7 @@ class LitModel(pl.LightningModule):
                         nn.Linear(128, 128), nn.ReLU(),
                         nn.Linear(128, 128), nn.ReLU(),
                     )
-        self.decoder = nn.Sequential( nn.Linear(128, num_classes), nn.Softmax(dim=1))
+        self.decoder = nn.Sequential( nn.Linear(128, num_classes))
 
         self.num_classes = num_classes
 
