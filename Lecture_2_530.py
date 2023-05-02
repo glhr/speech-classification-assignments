@@ -22,11 +22,13 @@ import matplotlib.pyplot as plt
 from torchvision import transforms
 import numpy as np
 
+from Lecture_2_530_conv_output_size import get_output_size_from_layer_params
+
 pl.seed_everything(0, workers=True) # set random seed for reproducibility
 
 # define the LightningModule
 class LitModel(pl.LightningModule):
-    def __init__(self, input_size=101*40, num_classes=3, architecture="convolutional", optimizer="SGD"):
+    def __init__(self, input_size=(1,101,40), num_classes=3, architecture="convolutional", optimizer="SGD"):
         super().__init__()
 
         self.architecture = architecture
@@ -44,18 +46,25 @@ class LitModel(pl.LightningModule):
 
         if self.architecture == "fully_connected":
             self.encoder = nn.Sequential(
-                        nn.Linear(self.input_size, 128), nn.ReLU(),
+                        nn.Linear(torch.LongTensor(self.input_size).prod(), 128), nn.ReLU(),
                         nn.Linear(128, 128), nn.ReLU(),
                         nn.Linear(128, 128), nn.ReLU(),
                         nn.Linear(128, 128), nn.ReLU(),
                     )
             self.decoder = nn.Sequential( nn.Linear(128, self.num_classes))
         elif self.architecture == "convolutional":
+            layer_params = {
+                "conv1": {"out_channels": 32, "kernel_size": (5,5), "stride": (1,1), "padding": (0,0)},
+                "pool1": {"kernel_size": (2,2), "stride": (2,2), "padding": (0,0)},
+                "conv2": {"out_channels": 16, "kernel_size": (5,5), "stride": (1,1), "padding": (0,0)},
+                "pool2": {"kernel_size": (2,2), "stride": (2,2), "padding": (0,0)},
+            }
+            flattened_size = get_output_size_from_layer_params(input_size=self.input_size, layer_params = layer_params)
             self.encoder = nn.Sequential(
-                        nn.Conv2d(1, 32, kernel_size=(5, 5), stride=(1, 1), padding=0), nn.ReLU(), nn.MaxPool2d(kernel_size=(2, 2), stride=(2, 2)),
-                        nn.Conv2d(32, 16, kernel_size=(5, 5), stride=(1, 1), padding=0), nn.ReLU(), nn.MaxPool2d(kernel_size=(2, 2), stride=(2, 2)),
+                        nn.Conv2d(self.input_size[0], **layer_params["conv1"]), nn.ReLU(), nn.MaxPool2d(**layer_params["pool1"]),
+                        nn.Conv2d(layer_params["conv1"]["out_channels"], **layer_params["conv2"]), nn.ReLU(), nn.MaxPool2d(**layer_params["pool2"]),
                         nn.Flatten(),
-                        nn.Linear(2464, 128), nn.ReLU(),
+                        nn.Linear(flattened_size, 128), nn.ReLU(),
                         nn.Linear(128, 128), nn.ReLU(),
                     )
             self.decoder = nn.Sequential( nn.Linear(128, self.num_classes))
@@ -125,11 +134,14 @@ class LitModel(pl.LightningModule):
 
 
 # initialize the model
-hparams = {"architecture": "convolutional", "optimizer": "Adam"}
+hparams = {"architecture": "convolutional", "optimizer": "SGD"}
 model = LitModel(architecture=hparams["architecture"], optimizer=hparams["optimizer"])
 
 # calculate the number of parameters in the model and check that it is the same as the one computed in the report
-manually_calculated_no_params = 567171
+manually_calculated_no_params = {
+    "fully_connected": 567171,
+    "convolutional": 346067
+}
 def get_no_params(model):
  nop = 0
  for param in list(model.parameters()):
@@ -140,7 +152,7 @@ def get_no_params(model):
  return nop
 nop = get_no_params(model)
 print(f"Number of parameters in the model: {nop}")
-#assert nop == manually_calculated_no_params, f"We messed up (calculated {manually_calculated_no_params} parameters, but it should be {nop})"
+assert nop == manually_calculated_no_params[hparams['architecture']], f"We messed up (calculated {manually_calculated_no_params[hparams['architecture']]} parameters, but it should be {nop})"
 
 ## load samples (X) and labels (y) for train, validation and test sets
 X_train = np.load(f"DL_Data/X_train.p", allow_pickle=True)
