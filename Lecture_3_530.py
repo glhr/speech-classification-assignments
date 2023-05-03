@@ -28,7 +28,7 @@ pl.seed_everything(0, workers=True) # set random seed for reproducibility
 
 # define the LightningModule
 class LitModel(pl.LightningModule):
-    def __init__(self, input_size=(101,40), num_classes=3, architecture="convolutional", optimizer="SGD"):
+    def __init__(self, input_size=(1,101,40), num_classes=3, architecture="convolutional", optimizer="SGD"):
         super().__init__()
 
         self.architecture = architecture
@@ -69,7 +69,7 @@ class LitModel(pl.LightningModule):
                     )
             self.decoder = nn.Sequential( nn.Linear(128, self.num_classes))
         elif self.architecture == "recurrent":
-            self.gru = nn.GRU(self.input_size[1], 64, num_layers=2, batch_first=True)
+            self.gru = nn.GRU(self.input_size[2], 64, num_layers=2, batch_first=True)
             self.fcs = nn.Sequential(
                         nn.Linear(64, 128), nn.ReLU(),
                         nn.Linear(128, 128), nn.ReLU(),
@@ -164,8 +164,9 @@ manually_calculated_no_params = {
 }
 def get_no_params(model):
  nop = 0
- for param in list(model.parameters()):
+ for name,param in list(model.named_parameters()):
     nn = 1
+    print("-->",name, param.size())
     for s in list(param.size()):
         nn = nn * s
     nop += nn
@@ -264,6 +265,8 @@ ax[1].plot(df_val.index,df_val["val_loss"], label="Validation loss")
 ax[1].set_title("Loss")
 ax[1].set_xlabel("Training iteration")
 ax[1].legend()
+
+plt.suptitle(f"{hparams['architecture']} model with {hparams['optimizer']} optimizer", fontsize=14)
 plt.savefig(os.path.join(log_dir, "loss.png"))
 plt.show()
 
